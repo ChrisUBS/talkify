@@ -1,0 +1,28 @@
+1. Install the virtual librarty
+
+WIN py -m pip install virtualenv
+MAC python3 -m venv myenv
+
+2. Let's use the library that we just installed
+
+WIN py -m venv myenv
+MAC source myenv/bin/activate
+
+(THE ONE) 3. Let's launch the virtual environment (this is something that needs to executed everytime that I want to work with this project)
+
+WIN venv/Scripts/activate
+MAC source venv/bin/activate
+
+4. Install Flask
+
+WIN py -m pip install flask
+MAC python3 -m pip install flask
+
+"Pymongo methods"
+find({})
+find_one_and_update
+insert_one
+delete_one
+delete_many
+update_one
+update_many
