@@ -3,9 +3,18 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
     reactStrictMode: true,
     images: {
-        domains: [
-            'lh3.googleusercontent.com',  // Dominio de imágenes de perfil de Google
-        ]
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: 'lh3.googleusercontent.com',
+                pathname: '**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'randomuser.me',
+                pathname: '**',
+            },
+        ],
     },
     env: {
         NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000'
