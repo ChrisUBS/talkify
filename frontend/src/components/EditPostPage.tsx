@@ -18,7 +18,7 @@ export default function EditPostPage() {
   
   const router = useRouter()
   const params = useParams<{ id: string }>()
-  const postId = params.id as string
+  const postId = params?.id ?? '';
   
   const { data: session, status: sessionStatus } = useSession()
   

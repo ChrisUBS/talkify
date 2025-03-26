@@ -14,7 +14,7 @@ export default function CreatePostPage() {
   const [error, setError] = useState<string | null>(null)
   
   const router = useRouter()
-  const { data: session, status: sessionStatus } = useSession()
+  const { data: _session, status: sessionStatus } = useSession()
   
   // Redirigir si no está autenticado
   if (sessionStatus === 'unauthenticated') {

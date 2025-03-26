@@ -1,4 +1,5 @@
-import '../app/globals.css'
+// src/pages/_app.tsx
+import '@/app/globals.css'
 import type { AppProps } from 'next/app'
 import { SessionProvider } from 'next-auth/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -18,7 +19,15 @@ const queryClient = new QueryClient({
 // Extender AppProps para incluir la sesión
 interface MyAppProps extends AppProps {
   pageProps: {
-    session?: Session
+    session?: Session & {
+      user: {
+        userId: string;
+        name?: string;
+        email?: string;
+        profilePicture?: string;
+        image?: string;
+      }
+    }
   } & any
 }
 
@@ -26,7 +35,7 @@ export default function App({
   Component, 
   pageProps: { session, ...pageProps } 
 }: MyAppProps) {
-  return (  
+  return (
     <SessionProvider session={session}>
       <QueryClientProvider client={queryClient}>
         <Component {...pageProps} />

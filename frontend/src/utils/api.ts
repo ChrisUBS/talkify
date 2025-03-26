@@ -17,7 +17,7 @@ api.interceptors.request.use(async (config) => {
 export const postService = {
   getPosts: () => api.get('/posts'),
   getPostById: (id: string) => api.get(`/posts/${id}`),
-  createPost: (data: any) => api.post('/posts', data),
+  createPost: (data: { title: string; content: string; status?: string }) => api.post('/posts', data),
 }
 
 export const commentService = {

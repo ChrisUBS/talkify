@@ -20,7 +20,7 @@ export default function PostDetailPage() {
   const { data: session } = useSession()
   const params = useParams<{ slug: string }>()
   const router = useRouter()
-  const slug = params.slug as string
+  const slug = params?.slug ?? '';
 
   useEffect(() => {
     const fetchPostData = async () => {

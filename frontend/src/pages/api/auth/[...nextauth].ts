@@ -1,6 +1,12 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
+import { Profile } from "next-auth"
 import { authService } from "@/services/api"
+
+// Extended Profile interface to include Google-specific fields
+interface GoogleProfile extends Profile {
+  picture?: string;
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -29,9 +35,13 @@ export const authOptions: NextAuthOptions = {
           token.user = response.user;
           
           // Preservar la imagen de perfil de Google en caso de que la API no la devuelva
-          if (profile?.image || profile?.picture) {
-            token.userImage = profile?.image || profile?.picture;
+          if (profile) {
+            const googleProfile = profile as GoogleProfile;
+            if (googleProfile.image || googleProfile.picture) {
+              token.userImage = googleProfile.image || googleProfile.picture;
+            }
           }
+          
         } catch (error) {
           console.error("Error durante la autenticación con la API:", error);
         }
@@ -49,7 +59,8 @@ export const authOptions: NextAuthOptions = {
         // Asegurarse de que haya una imagen
         // Primero intentamos usar profilePicture de la API, luego image del token, y finalmente la imagen de Google
         if (!session.user.image) {
-          session.user.image = session.user.profilePicture || token.userImage as string || null;
+          // Use empty string instead of null as fallback
+          session.user.image = session.user.profilePicture || (token.userImage as string) || "";
         }
       }
       

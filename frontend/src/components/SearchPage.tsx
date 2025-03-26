@@ -1,20 +1,38 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { postService } from '@/services/api'
 import { Post } from '@/types'
 import { Search, MessageCircle, ThumbsUp, Calendar, User, Clock } from 'lucide-react'
 import Image from 'next/image'
 
-export default function SearchPage() {
+// Loading component to show while search content is loading
+function SearchLoading() {
+  return (
+    <div className="container mx-auto px-4 py-16">
+      <div className="mb-12">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4 flex items-center">
+          <Search className="w-8 h-8 mr-2 text-blue-600" />
+          Buscando...
+        </h1>
+      </div>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    </div>
+  )
+}
+
+// Search content component that uses useSearchParams
+function SearchContent() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
   const searchParams = useSearchParams()
   const router = useRouter()
-  const query = searchParams.get('q') || ''
+  const query = searchParams?.get('q') ?? '';
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -55,7 +73,7 @@ export default function SearchPage() {
       <div className="mb-12">
         <h1 className="text-3xl font-bold text-gray-800 mb-4 flex items-center">
           <Search className="w-8 h-8 mr-2 text-blue-600" />
-          Resultados de búsqueda: "{query}"
+          Resultados de búsqueda: &quot;{query}&quot;
         </h1>
         {posts.length > 0 && (
           <p className="text-gray-600">Se encontraron {posts.length} resultados</p>
@@ -132,5 +150,14 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// Main search page component with Suspense boundary
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchLoading />}>
+      <SearchContent />
+    </Suspense>
   )
 }
