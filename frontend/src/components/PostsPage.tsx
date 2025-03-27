@@ -6,6 +6,7 @@ import { postService } from '@/services/api'
 import { Post } from '@/types'
 import { MessageCircle, ThumbsUp, Calendar, User, Clock } from 'lucide-react'
 import Image from 'next/image'
+import ReactMarkdown from 'react-markdown'
 
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -13,7 +14,7 @@ export default function PostsPage() {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  
+
   const router = useRouter()
 
   useEffect(() => {
@@ -96,15 +97,24 @@ export default function PostsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {posts.map((post) => (
-            <div 
+            <div
               key={post._id}
               onClick={() => handlePostClick(post.slug)}
               className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition cursor-pointer"
             >
               <div className="p-6">
                 <h2 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">{post.title}</h2>
-                <p className="text-gray-600 mb-4 line-clamp-3">{post.content}</p>
-                
+                <div className="text-gray-600 mb-4 line-clamp-3">
+                  <ReactMarkdown
+                    components={{
+                      strong: ({ children }) => <span>{children}</span>, // Renderiza las negritas como texto normal
+                    }}
+                  >
+                    {post.content}
+                  </ReactMarkdown>
+                </div>
+
+
                 <div className="flex items-center space-x-4 text-gray-500 text-sm mb-4">
                   <span className="flex items-center">
                     <Calendar className="w-4 h-4 mr-1" />
@@ -115,12 +125,12 @@ export default function PostsPage() {
                     {post.readTime} min
                   </span>
                 </div>
-                
+
                 <div className="flex justify-between items-center">
                   <div className="flex items-center">
                     {post.author.profilePicture ? (
-                      <Image 
-                        src={post.author.profilePicture} 
+                      <Image
+                        src={post.author.profilePicture}
                         alt={post.author.name}
                         width={24}
                         height={24}
@@ -151,7 +161,7 @@ export default function PostsPage() {
       {/* Paginación */}
       {totalPages > 1 && (
         <div className="flex justify-center mt-12 space-x-4">
-          <button 
+          <button
             onClick={handlePrevPage}
             disabled={currentPage === 1}
             className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition"
@@ -161,7 +171,7 @@ export default function PostsPage() {
           <span className="flex items-center">
             Página {currentPage} de {totalPages}
           </span>
-          <button 
+          <button
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
             className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition"

@@ -1,12 +1,16 @@
 'use client'
 
+import "./postDetailPage.css";
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import { postService, commentService } from '@/services/api'
 import { Post, Comment } from '@/types'
-import { User, Calendar, MessageCircle, Send, ThumbsUp, Clock, Eye, ThumbsDown } from 'lucide-react'
+import { User, Calendar, MessageCircle, Send, ThumbsUp, Clock, Eye } from 'lucide-react'
 import Image from 'next/image'
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 
 export default function PostDetailPage() {
   const [post, setPost] = useState<Post | null>(null)
@@ -16,7 +20,7 @@ export default function PostDetailPage() {
   const [liked, setLiked] = useState(false)
   const [likeLoading, setLikeLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   const { data: session } = useSession()
   const params = useParams<{ slug: string }>()
   const router = useRouter()
@@ -25,18 +29,18 @@ export default function PostDetailPage() {
   useEffect(() => {
     const fetchPostData = async () => {
       if (!slug) return;
-      
+
       try {
         setLoading(true)
         const postData = await postService.getPostBySlug(slug)
         setPost(postData)
-        
+
         // Si el usuario está autenticado, verificar si le dio like al post
         if (session?.accessToken) {
           const hasLiked = await postService.checkLike(postData._id)
           setLiked(hasLiked)
         }
-        
+
         setError(null)
       } catch (err) {
         console.error('Error fetching post:', err)
@@ -53,15 +57,15 @@ export default function PostDetailPage() {
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!newComment.trim() || !session || !post) {
       return
     }
-    
+
     try {
       setCommentLoading(true)
       const comment = await commentService.createComment(post._id, newComment)
-      
+
       // Actualizar el post con el nuevo comentario
       setPost(prevPost => {
         if (!prevPost) return null;
@@ -70,7 +74,7 @@ export default function PostDetailPage() {
           comments: [...prevPost.comments, comment]
         }
       })
-      
+
       setNewComment('')
     } catch (err) {
       console.error('Error creating comment:', err)
@@ -82,10 +86,10 @@ export default function PostDetailPage() {
 
   const handleLikeToggle = async () => {
     if (!session || !post) return;
-    
+
     try {
       setLikeLoading(true)
-      
+
       if (liked) {
         await postService.unlikePost(post._id)
         setPost(prev => {
@@ -99,7 +103,7 @@ export default function PostDetailPage() {
           return { ...prev, likes: prev.likes + 1 }
         })
       }
-      
+
       setLiked(!liked)
     } catch (err) {
       console.error('Error al gestionar like:', err)
@@ -144,15 +148,15 @@ export default function PostDetailPage() {
     <div className="container mx-auto px-4 py-16 max-w-4xl">
       <article className="bg-white rounded-lg shadow-md overflow-hidden p-6 mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-4">{post.title}</h1>
-        
+
         <div className="flex items-center mb-6">
           <div className="flex items-center mr-6">
             {post.author.profilePicture ? (
-              <Image 
-                src={post.author.profilePicture} 
-                alt={post.author.name} 
-                width={40} 
-                height={40} 
+              <Image
+                src={post.author.profilePicture}
+                alt={post.author.name}
+                width={40}
+                height={40}
                 className="rounded-full mr-2"
               />
             ) : (
@@ -162,7 +166,7 @@ export default function PostDetailPage() {
               <p className="font-medium text-gray-800">{post.author.name}</p>
             </div>
           </div>
-          
+
           <div className="flex flex-wrap text-sm text-gray-600 gap-x-4 gap-y-2">
             <span className="flex items-center">
               <Calendar className="w-4 h-4 mr-1" />
@@ -178,20 +182,25 @@ export default function PostDetailPage() {
             </span>
           </div>
         </div>
-        
-        <div className="prose prose-lg max-w-none mb-6">
-          <p className="text-gray-700 whitespace-pre-line">{post.content}</p>
+
+        {/* Contenido del post con soporte para markdown */}
+        <div className="prose prose-lg max-w-none mb-6 markdown-content">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkBreaks]}
+          >
+            {post.content}
+          </ReactMarkdown>
+          {/* {post.content} */}
         </div>
-        
+
         <div className="flex items-center justify-between border-t border-gray-100 pt-6">
           <div className="flex items-center">
             {session ? (
               <button
                 onClick={handleLikeToggle}
                 disabled={likeLoading}
-                className={`flex items-center space-x-2 ${
-                  liked ? 'text-blue-600' : 'text-gray-500'
-                } hover:text-blue-600 transition disabled:opacity-50`}
+                className={`flex items-center space-x-2 ${liked ? 'text-blue-600' : 'text-gray-500'
+                  } hover:text-blue-600 transition disabled:opacity-50`}
               >
                 {liked ? <ThumbsUp className="w-5 h-5" /> : <ThumbsUp className="w-5 h-5" />}
                 <span>{post.likes} Me gusta</span>
@@ -218,11 +227,11 @@ export default function PostDetailPage() {
           <form onSubmit={handleSubmitComment} className="mb-8">
             <div className="flex items-start space-x-4">
               {session.user?.image ? (
-                <Image 
-                  src={session.user.image} 
-                  alt="Tu foto" 
-                  width={40} 
-                  height={40} 
+                <Image
+                  src={session.user.image}
+                  alt="Tu foto"
+                  width={40}
+                  height={40}
                   className="rounded-full"
                 />
               ) : (
@@ -237,7 +246,7 @@ export default function PostDetailPage() {
                   rows={3}
                   required
                 ></textarea>
-                <button 
+                <button
                   type="submit"
                   disabled={commentLoading || !newComment.trim()}
                   className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition flex items-center disabled:opacity-50"
@@ -269,11 +278,11 @@ export default function PostDetailPage() {
               <div key={comment._id} className="border-b border-gray-100 pb-6">
                 <div className="flex items-start space-x-3">
                   {comment.author.profilePicture ? (
-                    <Image 
-                      src={comment.author.profilePicture} 
-                      alt={comment.author.name} 
-                      width={40} 
-                      height={40} 
+                    <Image
+                      src={comment.author.profilePicture}
+                      alt={comment.author.name}
+                      width={40}
+                      height={40}
                       className="rounded-full"
                     />
                   ) : (

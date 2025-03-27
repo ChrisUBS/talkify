@@ -1,0 +1,45 @@
+/* Archivo: markdown-styles.css */
+
+.markdown-content {
+    /* Asegura que los saltos de línea se respeten */
+    /* white-space: pre-wrap; */
+  }
+  
+  .markdown-content p {
+    /* Mantiene los párrafos con un espaciado adecuado */
+    margin-bottom: 0.5em;
+    line-height: 1.6;
+  }
+  
+  /* Añade espacio entre los elementos de lista */
+  .markdown-content ul,
+  .markdown-content ol {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Asegura que los elementos de lista tengan espacio entre ellos */
+  .markdown-content li {
+    margin-bottom: 0.5em;
+  }
+  
+  /* Ajusta el espacio entre títulos y contenido */
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3,
+  .markdown-content h4,
+  .markdown-content h5,
+  .markdown-content h6 {
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    font-size:x-large;
+  }
+  
+  /* Para los bloques de código */
+  .markdown-content pre {
+    white-space: pre;
+    overflow-x: auto;
+    padding: 1em;
+    border-radius: 0.375em;
+    margin: 1em 0;
+  }
