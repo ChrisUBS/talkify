@@ -27,8 +27,8 @@ export default function WelcomePage() {
                     {/* Crear Posts */}
                     <div className="bg-white p-6 rounded-lg shadow-md text-center hover:shadow-xl transition">
                         <PenTool size={50} className="mx-auto text-blue-600 mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">Crear Posts</h3>
                         <p className="text-gray-600">
+                        <h3 className="text-xl font-semibold mb-2">Crear Posts</h3>
                             Comparte tus pensamientos, historias e ideas con nuestra comunidad.
                         </p>
                     </div>
@@ -36,8 +36,8 @@ export default function WelcomePage() {
                     {/* Explorar Contenido */}
                     <div className="bg-white p-6 rounded-lg shadow-md text-center hover:shadow-xl transition">
                         <MessageCircle size={50} className="mx-auto text-green-600 mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">Explorar Conversaciones</h3>
                         <p className="text-gray-600">
+                        <h3 className="text-xl font-semibold mb-2">Explorar Conversaciones</h3>
                             Descubre posts increíbles y participa en conversaciones relevantes.
                         </p>
                     </div>
@@ -45,8 +45,8 @@ export default function WelcomePage() {
                     {/* Comunidad */}
                     <div className="bg-white p-6 rounded-lg shadow-md text-center hover:shadow-xl transition">
                         <Users size={50} className="mx-auto text-purple-600 mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">Conecta</h3>
                         <p className="text-gray-600">
+                        <h3 className="text-xl font-semibold mb-2">Conecta</h3>
                             Conoce a personas con intereses similares y expande tu red.
                         </p>
                     </div>
