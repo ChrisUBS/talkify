@@ -56,13 +56,23 @@ export const postService = {
   },
 
   // Crear un nuevo post
-  createPost: async (data: { title: string; content: string; status?: string }): Promise<Post> => {
+  createPost: async (data: { 
+    title: string; 
+    content: string; 
+    status?: string; 
+    coverImage?: string  // Nuevo campo opcional para imagen de portada
+  }): Promise<Post> => {
     const response = await api.post('/posts', data);
     return response.data;
   },
 
   // Actualizar un post
-  updatePost: async (id: string, data: { title?: string; content?: string; status?: string }): Promise<Post> => {
+  updatePost: async (id: string, data: { 
+    title?: string; 
+    content?: string; 
+    status?: string; 
+    coverImage?: string  // También añadido aquí por consistencia
+  }): Promise<Post> => {
     const response = await api.put(`/posts/${id}`, data);
     return response.data;
   },
