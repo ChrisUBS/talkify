@@ -20,12 +20,7 @@ export default function ThemeToggle() {
       document.documentElement.classList.add('light');
       document.documentElement.classList.remove('dark');
     } else {
-      // Si no hay preferencia guardada, usar la preferencia del sistema
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDarkMode(prefersDark);
-      if (prefersDark) {
-        document.documentElement.classList.add('dark');
-      }
+      setIsDarkMode(false);
     }
   }, []);
 

@@ -62,9 +62,8 @@ export default function Navbar() {
                             </Link>
                         )}
 
+                        {/* Barra de búsqueda */}
                         <SearchBar />
-
-                        <ThemeToggleWithCSSVars />
 
                         {/* Perfil o Inicio de Sesión */}
                         {session ? (
