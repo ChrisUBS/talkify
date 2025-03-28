@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import { postService, commentService } from '@/services/api'
 import { Post, Comment } from '@/types'
-import { User, Calendar, MessageCircle, Send, ThumbsUp, Clock, Eye, ImageIcon, Camera } from 'lucide-react'
+import { User, Calendar, MessageCircle, Send, ThumbsUp, Clock, Eye, ImageIcon, Camera, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,6 +17,7 @@ export default function PostDetailPage() {
     const [newComment, setNewComment] = useState('')
     const [loading, setLoading] = useState(true)
     const [commentLoading, setCommentLoading] = useState(false)
+    const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
     const [liked, setLiked] = useState(false)
     const [likeLoading, setLikeLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -89,6 +90,33 @@ export default function PostDetailPage() {
         }
     }
 
+    const handleDeleteComment = async (commentId: string) => {
+        if (!session || !post) return;
+
+        if (!confirm('¿Estás seguro de que deseas eliminar este comentario?')) {
+            return;
+        }
+
+        try {
+            setDeleteLoading(commentId)
+            await commentService.deleteComment(post._id, commentId)
+
+            // Actualizar el post eliminando el comentario
+            setPost(prevPost => {
+                if (!prevPost) return null;
+                return {
+                    ...prevPost,
+                    comments: prevPost.comments.filter(comment => comment._id !== commentId)
+                }
+            })
+        } catch (err) {
+            console.error('Error deleting comment:', err)
+            alert('Error al eliminar el comentario')
+        } finally {
+            setDeleteLoading(null)
+        }
+    }
+
     const handleLikeToggle = async () => {
         if (!session || !post) return;
 
@@ -115,6 +143,17 @@ export default function PostDetailPage() {
         } finally {
             setLikeLoading(false)
         }
+    }
+
+    // Verificar si el usuario puede eliminar un comentario (es autor del comentario o del post)
+    const canDeleteComment = (comment: Comment) => {
+        if (!session || !post) return false;
+
+        // Obtener el ID del usuario actual
+        const userId = session.user?.userId;
+
+        // Comparamos los IDs y devolvemos true si coincide alguno
+        return userId === comment.author.userId || userId === post.author.userId;
     }
 
     // Formatear fecha
@@ -317,10 +356,28 @@ export default function PostDetailPage() {
                                     ) : (
                                         <User className="w-10 h-10 p-2 bg-gray-200 rounded-full text-gray-600" />
                                     )}
-                                    <div>
-                                        <div className="flex items-center mb-1">
-                                            <p className="font-medium text-gray-800 mr-2">{comment.author.name}</p>
-                                            <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
+                                    <div className="flex-grow">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <div className="flex items-center">
+                                                <p className="font-medium text-gray-800 mr-2">{comment.author.name}</p>
+                                                <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
+                                            </div>
+
+                                            {/* Botón de eliminar comentario - solo visible si el usuario puede eliminar */}
+                                            {canDeleteComment(comment) && (
+                                                <button
+                                                    onClick={() => handleDeleteComment(comment._id)}
+                                                    disabled={deleteLoading === comment._id}
+                                                    className="text-red-500 hover:text-red-700 transition"
+                                                    title="Eliminar comentario"
+                                                >
+                                                    {deleteLoading === comment._id ? (
+                                                        <div className="w-5 h-5 animate-spin rounded-full border-2 border-red-500 border-t-transparent"></div>
+                                                    ) : (
+                                                        <Trash2 className="w-5 h-5" />
+                                                    )}
+                                                </button>
+                                            )}
                                         </div>
                                         <p className="text-gray-700">{comment.content}</p>
                                     </div>
