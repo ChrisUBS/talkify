@@ -27,6 +27,7 @@ export interface Post {
   views: number;
   likes: number;
   comments: Comment[];
+  coverImage?: string; // Opcional porque algunos posts podrían no tener imagen
 }
 
 export interface User {

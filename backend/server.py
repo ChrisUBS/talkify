@@ -219,7 +219,9 @@ def save_post():
             "readTime": read_time,
             "views": 0,
             "likes": 0,
-            "comments": []
+            "comments": [],
+            # Añadir imagen de portada solo si está presente
+            "coverImage": post_data.get("coverImage") 
         }
         
         result = db.posts.insert_one(new_post)
@@ -268,6 +270,10 @@ def update_post(id):
             
         if "status" in data:
             update_data["status"] = data["status"]
+            
+        # Manejar la imagen de portada
+        if "coverImage" in data:
+            update_data["coverImage"] = data["coverImage"]  # Puede ser una URL o null
             
         # Actualizar fecha de modificación
         update_data["updatedAt"] = datetime.datetime.utcnow().isoformat()
