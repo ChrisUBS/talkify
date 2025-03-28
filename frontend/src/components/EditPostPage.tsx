@@ -5,7 +5,21 @@ import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { postService } from '@/services/api'
 import { Post } from '@/types'
-import { Edit, Save, AlignLeft, Clock, AlertCircle } from 'lucide-react'
+import { Edit, Save, AlignLeft, Clock, AlertCircle, ImageIcon } from 'lucide-react'
+import Image from 'next/image'
+
+// Configuración de Unsplash
+const UNSPLASH_ACCESS_KEY = process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY
+const UNSPLASH_API_URL = 'https://api.unsplash.com/search/photos'
+
+interface UnsplashImage {
+  id: string
+  urls: {
+    small: string
+    regular: string
+  }
+  alt_description: string
+}
 
 export default function EditPostPage() {
   const [post, setPost] = useState<Post | null>(null)
@@ -16,6 +30,12 @@ export default function EditPostPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
+  // Estados para imágenes de Unsplash
+  const [recommendedImages, setRecommendedImages] = useState<UnsplashImage[]>([])
+  const [selectedImage, setSelectedImage] = useState<UnsplashImage | null>(null)
+  const [currentCoverImage, setCurrentCoverImage] = useState<string | null>(null)
+  const [imageLoading, setImageLoading] = useState(false)
+
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const postId = params?.id ?? '';
@@ -48,6 +68,7 @@ export default function EditPostPage() {
         setTitle(fetchedPost.title);
         setContent(fetchedPost.content);
         setStatus(fetchedPost.status);
+        setCurrentCoverImage(fetchedPost.coverImage || null);
         setError(null);
       } catch (err) {
         console.error('Error fetching post:', err);
@@ -59,6 +80,34 @@ export default function EditPostPage() {
     
     fetchPost();
   }, [postId, session, sessionStatus]);
+
+  // Función para buscar imágenes en Unsplash
+  const fetchUnsplashImages = async (query: string) => {
+    if (!query.trim() || !UNSPLASH_ACCESS_KEY) return;
+
+    setImageLoading(true)
+    try {
+      const response = await fetch(`${UNSPLASH_API_URL}?query=${encodeURIComponent(query)}&per_page=6`, {
+        headers: {
+          'Authorization': `Client-ID ${UNSPLASH_ACCESS_KEY}`
+        }
+      });
+      
+      const data = await response.json()
+      setRecommendedImages(data.results)
+    } catch (err) {
+      console.error('Error fetching Unsplash images:', err)
+    } finally {
+      setImageLoading(false)
+    }
+  }
+
+  // Efecto para buscar imágenes cuando cambia el título
+  useEffect(() => {
+    if (title.trim()) {
+      fetchUnsplashImages(title)
+    }
+  }, [title])
 
   // Calcular tiempo de lectura aproximado
   const calculateReadTime = (text: string) => {
@@ -81,7 +130,8 @@ export default function EditPostPage() {
       const updatedPost = await postService.updatePost(postId, {
         title: title.trim(),
         content: content.trim(),
-        status
+        status,
+        coverImage: selectedImage?.urls.regular || currentCoverImage
       });
       
       // Redirigir a la página del post
@@ -142,6 +192,61 @@ export default function EditPostPage() {
         )}
         
         <form onSubmit={handleSubmit}>
+          {/* Sección de imágenes recomendadas */}
+          <div className="mb-6">
+            <div className="flex items-center mb-2">
+              <ImageIcon className="w-5 h-5 mr-2 text-blue-600" />
+              <h3 className="text-gray-700 font-medium">Imagen de portada</h3>
+            </div>
+            
+            {/* Imagen actual o seleccionada */}
+            {(currentCoverImage || selectedImage) && (
+              <div className="mb-4 relative w-full h-64 rounded-lg overflow-hidden">
+                <Image 
+                  src={selectedImage?.urls.regular || currentCoverImage!} 
+                  alt="Imagen de portada" 
+                  fill 
+                  className="object-cover"
+                />
+              </div>
+            )}
+            
+            {title.trim() && (
+              <>
+                {imageLoading ? (
+                  <div className="flex justify-center items-center">
+                    <span>Cargando imágenes...</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-4">
+                    {recommendedImages.map((image) => (
+                      <div 
+                        key={image.id} 
+                        onClick={() => {
+                          setSelectedImage(image);
+                          setCurrentCoverImage(null);
+                        }}
+                        className={`cursor-pointer rounded-lg overflow-hidden border-2 hover:border-blue-500 transition ${
+                          selectedImage?.id === image.id 
+                            ? 'border-blue-600' 
+                            : 'border-transparent'
+                        }`}
+                      >
+                        <Image 
+                          src={image.urls.small} 
+                          alt={image.alt_description || 'Imagen de Unsplash'} 
+                          width={200} 
+                          height={150} 
+                          className="w-full h-36 object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           <div className="mb-6">
             <label htmlFor="title" className="block text-gray-700 font-medium mb-2">
               Título

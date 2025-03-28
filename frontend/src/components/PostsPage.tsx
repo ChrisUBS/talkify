@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { postService } from '@/services/api'
 import { Post } from '@/types'
-import { MessageCircle, ThumbsUp, Calendar, User, Clock } from 'lucide-react'
+import { MessageCircle, ThumbsUp, Calendar, User, Clock, ImageIcon } from 'lucide-react'
 import Image from 'next/image'
 import ReactMarkdown from 'react-markdown'
 
@@ -102,6 +102,22 @@ export default function PostsPage() {
               onClick={() => handlePostClick(post.slug)}
               className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition cursor-pointer"
             >
+              {/* Cover Image */}
+              {post.coverImage ? (
+                <div className="relative w-full h-48 overflow-hidden">
+                  <Image 
+                    src={post.coverImage} 
+                    alt={post.title} 
+                    fill 
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="bg-gray-100 h-48 flex items-center justify-center">
+                  <ImageIcon className="w-12 h-12 text-gray-400" />
+                </div>
+              )}
+
               <div className="p-6">
                 <h2 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">{post.title}</h2>
                 <div className="text-gray-600 mb-4 line-clamp-3">
@@ -113,7 +129,6 @@ export default function PostsPage() {
                     {post.content}
                   </ReactMarkdown>
                 </div>
-
 
                 <div className="flex items-center space-x-4 text-gray-500 text-sm mb-4">
                   <span className="flex items-center">
