@@ -1,7 +1,6 @@
 # Libraries
 from flask import Flask, request, jsonify
 from http import HTTPStatus
-import json
 from config import db
 from flask_cors import CORS
 import os
@@ -96,7 +95,7 @@ def login():
             "name": name,
             "email": email,
             "profilePicture": picture,
-            "lastLogin": datetime.datetime.utcnow().isoformat()
+            "lastLogin": datetime.datetime.now(datetime.UTC).isoformat()
         }
         
         db.users.update_one(
@@ -207,7 +206,7 @@ def save_post():
         read_time = calculate_read_time(post_data["content"])
         
         # Crear el post
-        now = datetime.datetime.utcnow().isoformat()
+        now = datetime.datetime.now(datetime.UTC).isoformat()
         new_post = {
             "title": post_data["title"],
             "content": post_data["content"],
@@ -276,7 +275,7 @@ def update_post(id):
             update_data["coverImage"] = data["coverImage"]  # Puede ser una URL o null
             
         # Actualizar fecha de modificación
-        update_data["updatedAt"] = datetime.datetime.utcnow().isoformat()
+        update_data["updatedAt"] = datetime.datetime.now(datetime.UTC).isoformat()
         
         result = db.posts.update_one(
             {"_id": ObjectId(id)},
@@ -356,7 +355,7 @@ def create_comment(post_id):
                 "name": user_data["name"],
                 "profilePicture": user_data.get("profilePicture")
             },
-            "createdAt": datetime.datetime.utcnow().isoformat(),
+            "createdAt": datetime.datetime.now(datetime.UTC).isoformat(),
             "likes": 0
         }
         
@@ -422,7 +421,7 @@ def like_post(post_id):
             db.post_likes.insert_one({
                 "postId": post_id,
                 "userId": user_id,
-                "createdAt": datetime.datetime.utcnow().isoformat()
+                "createdAt": datetime.datetime.now(datetime.UTC).isoformat()
             })
             
             # Incrementar contador de likes
