@@ -10,6 +10,7 @@ from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, creat
 import re
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+from memory_profiler import profile
 
 app = Flask(__name__)
 CORS(app)  # Warning: this enables CORS for all origins
@@ -71,79 +72,85 @@ def home():
     return "<h1>Talkify API - Backend en Flask para la plataforma de blogs</h1>", HTTPStatus.OK
 
 # Autenticación con Google
+from functools import lru_cache
+
+# Reutilizar el request de Google para validación
+@lru_cache()
+def get_google_request():
+    return google_requests.Request()
+
 @app.post("/api/auth/login")
+@profile  # Quitar esto en producción
 def login():
     try:
         data = request.get_json()
         token = data.get("token")
-        
         if not token:
             return {"error": "Token is required"}, HTTPStatus.BAD_REQUEST
-        
-        # Verificar el token de Google
-        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
-        
-        # Extraer información del usuario
-        user_id = idinfo['sub']
-        email = idinfo['email']
-        name = idinfo.get('name', '')
-        picture = idinfo.get('picture', '')
-        
-        # Crear o actualizar usuario en la base de datos
+
+        # Verificar token solo una vez
+        idinfo = id_token.verify_oauth2_token(token, get_google_request(), GOOGLE_CLIENT_ID)
+
+        # Datos del usuario
+        user_id = idinfo["sub"]
         user = {
             "userId": user_id,
-            "name": name,
-            "email": email,
-            "profilePicture": picture,
+            "name": idinfo.get("name", ""),
+            "email": idinfo.get("email", ""),
+            "profilePicture": idinfo.get("picture", ""),
             "lastLogin": datetime.datetime.now(datetime.UTC).isoformat()
         }
-        
-        db.users.update_one(
-            {"userId": user_id},
-            {"$set": user},
-            upsert=True
-        )
-        
-        # Generar token JWT
-        access_token = create_access_token(identity=user_id)
-        
-        return {"accessToken": access_token, "user": user}, HTTPStatus.OK
+
+        # Solo actualizar si hay cambios
+        existing_user = db.users.find_one({"userId": user_id})
+        if not existing_user or any(user.get(k) != existing_user.get(k) for k in user):
+            db.users.update_one({"userId": user_id}, {"$set": user}, upsert=True)
+
+        # Crear token JWT
+        token = create_access_token(identity=user_id)
+        return {"accessToken": token, "user": user}, HTTPStatus.OK
+
     except Exception as e:
         return {"error": str(e)}, HTTPStatus.UNAUTHORIZED
 
 # GET (get all posts)
+from math import ceil
+
 @app.get("/api/posts")
+@profile  # Quitar en producción
 def get_posts():
     try:
-        # Opciones de filtrado y paginación
-        page = int(request.args.get("page", 1))
-        limit = int(request.args.get("limit", 10))
+        # Validar parámetros de consulta
+        try:
+            page = max(1, int(request.args.get("page", 1)))
+            limit = max(1, min(50, int(request.args.get("limit", 10))))  # evitar abusos con limit muy alto
+        except ValueError:
+            return {"error": "Invalid pagination values"}, HTTPStatus.BAD_REQUEST
+
         status = request.args.get("status", "published")
-        
-        # Calcular skip para paginación
         skip = (page - 1) * limit
-        
-        # Crear filtro
         filter_query = {"status": status}
-        
-        # Obtener total de posts para paginación
-        total_posts = db.posts.count_documents(filter_query)
-        
-        # Obtener posts paginados
-        cursor = db.posts.find(filter_query).sort("createdAt", -1).skip(skip).limit(limit)
+
+        # Usar proyección para excluir campos pesados
+        projection = {
+            "content": 0,
+            "comments": 0
+        }
+
+        total = db.posts.count_documents(filter_query)
+        cursor = db.posts.find(filter_query, projection).sort("createdAt", -1).skip(skip).limit(limit)
         posts = fix_ids(list(cursor))
-        
-        response = {
+
+        return jsonify({
             "posts": posts,
             "pagination": {
-                "total": total_posts,
+                "total": total,
                 "page": page,
                 "limit": limit,
-                "totalPages": (total_posts + limit - 1) // limit
+                "totalPages": ceil(total / limit) if limit else 1
             }
-        }
-        
-        return jsonify(response), HTTPStatus.OK
+        }), HTTPStatus.OK
+
     except Exception as e:
         return {"error": str(e)}, HTTPStatus.BAD_REQUEST
 
@@ -163,53 +170,62 @@ def get_post_by_id(id):
 
 # GET (get post by slug)
 @app.get("/api/posts/slug/<slug>")
+@profile  # solo en desarrollo
 def get_post_by_slug(slug):
     try:
-        post = db.posts.find_one({"slug": slug})
+        post = db.posts.find_one_and_update(
+            {"slug": slug},
+            {"$inc": {"views": 1}},
+            return_document=True  # devuelve el documento actualizado
+        )
+
         if post:
-            # Incrementar contador de vistas
-            db.posts.update_one({"_id": post["_id"]}, {"$inc": {"views": 1}})
-            post["views"] += 1  # Actualizar el objeto antes de devolverlo
+            post["views"] += 1  # para reflejar el cambio exacto en la respuesta
             return jsonify(fix_id(post)), HTTPStatus.OK
         return {"error": "Post not found"}, HTTPStatus.NOT_FOUND
+
     except Exception as e:
         return {"error": str(e)}, HTTPStatus.BAD_REQUEST
 
 # POST (create a new post)
 @app.post("/api/posts")
 @jwt_required()
+@profile  # Solo en desarrollo
 def save_post():
     try:
         post_data = request.get_json()
-        
-        # Validación básica
-        if not post_data.get("title") or not post_data.get("content"):
+
+        # Validación básica y explícita
+        title = post_data.get("title", "").strip()
+        content = post_data.get("content", "").strip()
+
+        if not title or not content:
             return {"error": "Title and content are required"}, HTTPStatus.BAD_REQUEST
-        
+
         # Obtener información del usuario autenticado
         user_id = get_jwt_identity()
         user_data = get_user_data(user_id)
-        
         if not user_data:
             return {"error": "User not found"}, HTTPStatus.UNAUTHORIZED
-        
-        # Crear el slug a partir del título
-        slug = create_slug(post_data["title"])
-        
-        # Verificar si el slug ya existe
-        existing_post = db.posts.find_one({"slug": slug})
-        if existing_post:
-            # Añadir un sufijo único si el slug ya existe
-            slug = f"{slug}-{str(ObjectId())[-6:]}"
-        
+
+        # Crear slug y verificar existencia en una sola operación
+        base_slug = create_slug(title)
+        slug = base_slug
+
+        suffix_attempts = 0
+        while db.posts.find_one({"slug": slug}):
+            suffix_attempts += 1
+            slug = f"{base_slug}-{str(ObjectId())[-6:]}"
+            if suffix_attempts > 3:
+                return {"error": "Failed to generate unique slug"}, HTTPStatus.CONFLICT
+
         # Calcular tiempo de lectura
-        read_time = calculate_read_time(post_data["content"])
-        
-        # Crear el post
+        read_time = max(1, round(len(content.split()) / 200))
+
         now = datetime.datetime.now(datetime.UTC).isoformat()
-        new_post = {
-            "title": post_data["title"],
-            "content": post_data["content"],
+        post = {
+            "title": title,
+            "content": content,
             "author": user_data,
             "slug": slug,
             "createdAt": now,
@@ -219,75 +235,70 @@ def save_post():
             "views": 0,
             "likes": 0,
             "comments": [],
-            # Añadir imagen de portada solo si está presente
-            "coverImage": post_data.get("coverImage") 
+            "coverImage": post_data.get("coverImage") or None
         }
-        
-        result = db.posts.insert_one(new_post)
-        new_post["_id"] = str(result.inserted_id)
-        
-        return jsonify(new_post), HTTPStatus.CREATED
+
+        result = db.posts.insert_one(post)
+        post["_id"] = str(result.inserted_id)
+
+        return jsonify(post), HTTPStatus.CREATED
+
     except Exception as e:
         return {"error": str(e)}, HTTPStatus.BAD_REQUEST
 
 # PUT (update a post)
 @app.put("/api/posts/<id>")
 @jwt_required()
+@profile  # solo en desarrollo
 def update_post(id):
     try:
         data = request.get_json()
         user_id = get_jwt_identity()
-        
-        # Verificar si el post existe y pertenece al usuario
+
+        # Obtener post actual
         post = db.posts.find_one({"_id": ObjectId(id)})
         if not post:
             return {"error": "Post not found"}, HTTPStatus.NOT_FOUND
-            
+
         if post["author"]["userId"] != user_id:
             return {"error": "Unauthorized: you can only edit your own posts"}, HTTPStatus.UNAUTHORIZED
-        
-        # Preparar datos a actualizar
+
         update_data = {}
-        if "title" in data:
-            update_data["title"] = data["title"]
-            # Actualizar el slug si cambia el título
-            new_slug = create_slug(data["title"])
-            
-            # Verificar si el nuevo slug ya existe y es diferente al actual
+        title = data.get("title", "").strip()
+        content = data.get("content", "").strip()
+
+        # Actualizar título y slug si cambió
+        if title and title != post.get("title"):
+            update_data["title"] = title
+            new_slug = create_slug(title)
+
+            # Evitar duplicado de slug
             if new_slug != post.get("slug"):
-                existing_post = db.posts.find_one({"slug": new_slug, "_id": {"$ne": ObjectId(id)}})
-                if existing_post:
-                    # Añadir un sufijo único si el slug ya existe
-                    new_slug = f"{new_slug}-{str(ObjectId())[-6:]}"
-            
-            update_data["slug"] = new_slug
-            
-        if "content" in data:
-            update_data["content"] = data["content"]
-            # Recalcular tiempo de lectura si cambia el contenido
-            update_data["readTime"] = calculate_read_time(data["content"])
-            
-        if "status" in data:
-            update_data["status"] = data["status"]
-            
-        # Manejar la imagen de portada
-        if "coverImage" in data:
-            update_data["coverImage"] = data["coverImage"]  # Puede ser una URL o null
-            
-        # Actualizar fecha de modificación
+                if db.posts.find_one({"slug": new_slug, "_id": {"$ne": ObjectId(id)}}):
+                    new_slug += f"-{str(ObjectId())[-6:]}"
+                update_data["slug"] = new_slug
+
+        # Actualizar contenido y recalcular tiempo de lectura si cambió
+        if content and content != post.get("content"):
+            update_data["content"] = content
+            update_data["readTime"] = calculate_read_time(content)
+
+        # Otros campos simples
+        for field in ["status", "coverImage"]:
+            if field in data:
+                update_data[field] = data[field]
+
+        if not update_data:
+            return {"message": "No changes detected"}, HTTPStatus.OK
+
         update_data["updatedAt"] = datetime.datetime.now(datetime.UTC).isoformat()
-        
-        result = db.posts.update_one(
-            {"_id": ObjectId(id)},
-            {"$set": update_data}
-        )
-        
-        if result.matched_count:
-            # Obtener el post actualizado para devolverlo
-            updated_post = db.posts.find_one({"_id": ObjectId(id)})
-            return jsonify(fix_id(updated_post)), HTTPStatus.OK
-            
-        return {"error": "Post not found"}, HTTPStatus.NOT_FOUND
+
+        db.posts.update_one({"_id": ObjectId(id)}, {"$set": update_data})
+
+        # Solo devolver lo que cambió si prefieres evitar otra lectura
+        updated_post = db.posts.find_one({"_id": ObjectId(id)})
+        return jsonify(fix_id(updated_post)), HTTPStatus.OK
+
     except Exception as e:
         return {"error": str(e)}, HTTPStatus.BAD_REQUEST
 
@@ -590,6 +601,26 @@ def check_auth():
 ##############################################
 ################# RUN SERVER #################
 ##############################################
+
+import flask_profiler
+
+# Configuración de flask-profiler
+app.config["flask_profiler"] = {
+    "enabled": True,
+    "storage": {
+        "engine": "sqlite",
+        "file": "./flask_profiler.sqlite"
+    },
+    "basicAuth": {
+        "enabled": False
+    },
+    "ignore": [
+        "^/static/.*",
+        "^/favicon.ico"
+    ]
+}
+
+flask_profiler.init_app(app)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
